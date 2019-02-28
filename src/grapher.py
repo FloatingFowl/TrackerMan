@@ -25,9 +25,9 @@ def graphMaker(detections):
         for i in cur:
 
             # Possible TODO: When the number of correspondences is zero
-            overlap_scores = computeOverlap(i, prev, detections) #TODO
+            overlap_scores = computeOverlap(i, prev, detections)
             prev_ov = prev[np.where(overlap_scores > threshold['overlap'])[0]]
-            size_scores = computeSizeChange(i, prev_ov, detections) #TODO
+            size_scores = computeSizeChange(i, prev_ov, detections)
             prev_sc = prev_ov[np.where(size_scores > threshold['size'])[0]]
             adjList.append(prev_sc)
 
