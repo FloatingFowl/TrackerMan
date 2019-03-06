@@ -10,73 +10,73 @@ def sub(s, I):
     return s
 
 
-def tracking_dp(dres, c_en, c_ex, c_ij, betta,
-                thr_cost, max_it, nms_in_loop):
+def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
+                threshold_cost, max_iterations, nms_in_loop):
     '''
     Non max suppression is not implemented
     '''
-    if max_it is None:
-        max_it = 10e5;
-    if thr_cost is None:
-        thr_cost = 0;
 
-    thr_nms = 0.5
-    dnum = len(dres['x'])
-    dres['c'] = betta - dres['r']
+    ndum = len(ndct['x'])
+    redo_nodes = list(range(ndum))
+    ndct['dp_c'] = np.array([0. for i in redo_nodes])
+    ndct['dp_link'] = np.array([0. for i in redo_nodes])
+    ndct['orig'] = np.array([0. for i in redo_nodes])
+
+
+    if max_iterations is None:
+        max_iterations = 10e5;
+    if threshold_cost is None:
+        threshold_cost = 0;
+
+    # thr_nms = 0.5
+    ndct['c'] = betta - ndct['r']
 
     min_c = -np.inf
     min_cs = np.zeros(int(10e5))
-    inds = np.zeros(int(10e5))
-    it = 0  # zero in matlab
-    k = 0  # zero in matlab
+
+    iteration = 0
+    k = 0
     inds_all = np.zeros(int(10e5))
     id_s = np.zeros(int(10e5))
-    redo_nodes = list(range(dnum))
 
-    dres['dp_c'] = np.array([0. for i in redo_nodes])
-    dres['dp_link'] = np.array([0. for i in redo_nodes])
-    dres['orig'] = np.array([0. for i in redo_nodes])
+    while min_c < threshold_cost and iteration < max_iterations:
+        iteration = iteration + 1
 
-    while min_c < thr_cost and it < max_it:
-        it = it + 1
-
-        dres['dp_c'][redo_nodes] = dres['c'][redo_nodes] + c_en
-        dres['dp_link'][redo_nodes] = -1
-        dres['orig'][redo_nodes] = redo_nodes
-
-        # print(dres['dp_link'][0:10])
-        # print(dres['orig'][0:10])
+        ndct['dp_c'][redo_nodes] = ndct['c'][redo_nodes] + c_en
+        ndct['dp_link'][redo_nodes] = -1
+        ndct['orig'][redo_nodes] = redo_nodes
 
         for ii in range(len(redo_nodes)):
             i = redo_nodes[ii]
-            f2 = dres['pr'][i]
+            f2 = ndct['pr'][i]
             if len(f2) == 0:
                 continue
 
-            costs = c_ij + dres['c'][i] + dres['dp_c'][f2]
+            costs = c_ij + ndct['c'][i] + ndct['dp_c'][f2]
             min_cost, j = np.min(costs), np.argmin(costs)
             min_link = f2[j]
 
-            if dres['dp_c'][i] > min_cost:
-                dres['dp_c'][i] = min_cost
-                dres['dp_link'][i] = min_link
-                dres['orig'][i] = dres['orig'][min_link]
+            if ndct['dp_c'][i] > min_cost:
+                ndct['dp_c'][i] = min_cost
+                ndct['dp_link'][i] = min_link
+                ndct['orig'][i] = ndct['orig'][min_link]
 
-        min_c = np.min(dres['dp_c'] + c_ex)
-        ind = np.argmin(dres['dp_c'] + c_ex)
-        inds = np.zeros(dnum).astype('int32')
+        min_c = np.min(ndct['dp_c'] + c_ex)
+        ind = np.argmin(ndct['dp_c'] + c_ex)
+        inds = np.zeros(ndum).astype('int32')
 
-        k1 = -1  # zero in matlab
+        k1 = -1
         while not ind == -1:
             k1 = k1 + 1
             inds[k1] = ind
-            ind = dres['dp_link'][int(ind)]
+            ind = ndct['dp_link'][int(ind)]
 
         inds = inds[:k1 + 1]
         inds_all[k:k + len(inds)] = inds
-        id_s[k:k + len(inds)] = it
+        id_s[k:k + len(inds)] = iteration
         k = k + len(inds)
 
+        # TODO: Should debug this part
         # if nms_in_loop:
         #    supp_inds = nms_aggressive(dres, inds, thr_nms)
         #    origs = np.unique(dres['orig'][supp_inds])
@@ -87,18 +87,34 @@ def tracking_dp(dres, c_en, c_ex, c_ij, betta,
             origs = inds[-1]
         except:
             origs = 0
-        redo_nodes = np.where(dres['orig'] == origs)
+        redo_nodes = np.where(ndct['orig'] == origs)
 
         redo_nodes = np.setdiff1d(redo_nodes, supp_inds)
-        dres['dp_c'][supp_inds] = np.inf
-        dres['c'][supp_inds] = np.inf
+        ndct['dp_c'][supp_inds] = np.inf
+        ndct['c'][supp_inds] = np.inf
 
-        min_cs[it] = min_c
+        min_cs[iteration] = min_c
 
     inds_all = inds_all[:k]
     id_s = id_s[:k]
 
-    # line 83
-    res = sub(dres, inds_all.astype('int32'))
+    res = sub(ndct, inds_all.astype('int32'))
 
     return res, min_cs
+
+
+if __name__ == "__main__":
+    import cv2, numpy as np, os, pickle
+
+    with open('pedestrian_detections.pkl', 'rb') as f:
+        dct = pickle.load(f)
+
+    from importlib import reload
+    import grapher
+
+    reload(grapher)
+    ndct = grapher.graphMaker(dct);
+
+    res, min_cs = tracking_dp(ndct, 10., 10., 0, 0.2, 18, np.inf, False)
+
+    print(res['x'][-10:])
