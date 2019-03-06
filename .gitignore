@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 seq*
+*.mp4
 
 # C extensions
 *.so
