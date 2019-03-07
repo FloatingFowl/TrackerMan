@@ -155,11 +155,16 @@ if __name__ == "__main__":
     res, min_cs, id_s = tracking_dp(ndct, 10., 10., 0, 0.2, 18, np.inf, False)
     logging.info("Tracking complete")
 
+    no_colors = len(np.unique(id_s.astype('uint32')))
+    colors = [[np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)] for _ in
+              range(no_colors)]
+
     def drawRect(img, x, y, w, h, id):
         x1, y1 = int(x), int(y)
         x2, y2 = int(x + w), int(y + h)
         if colors:
-            cv2.rectangle(img, (x1, y1), (x2, y2), (min(id * 3, 255), max(255 - id * 3, 0), id / 2 + 10), 2)
+            # cv2.rectangle(img, (x1, y1), (x2, y2), (min(id * 3, 255), max(255 - id * 3, 0), id / 2 + 10), 2)
+            cv2.rectangle(img, (x1, y1), (x2, y2), colors[int(id) - 1], 2)
         else:
             cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
         return img
