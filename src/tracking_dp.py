@@ -10,7 +10,7 @@ def sub(s, I):
     return s
 
 
-def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
+def tracking_dp(ndct, c_enter, c_exit, c_ij, beta,
                 threshold_cost, max_iterations, nms_in_loop):
     '''
     Non max suppression is not implemented
@@ -18,10 +18,14 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
 
     ndum = len(ndct['x'])
     redo_nodes = list(range(ndum))
+
+    # dp_c => cost of reaching each node
+    # dp_link => parent of each node
+    # orig => root of each path of each node
+
     ndct['dp_c'] = np.array([0. for i in redo_nodes])
     ndct['dp_link'] = np.array([0. for i in redo_nodes])
     ndct['orig'] = np.array([0. for i in redo_nodes])
-
 
     if max_iterations is None:
         max_iterations = 10e5;
@@ -29,7 +33,7 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
         threshold_cost = 0;
 
     # thr_nms = 0.5
-    ndct['c'] = betta - ndct['r']
+    ndct['c'] = beta - ndct['r']
 
     min_c = -np.inf
     min_cs = np.zeros(int(10e5))
@@ -42,15 +46,26 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
     while min_c < threshold_cost and iteration < max_iterations:
         iteration = iteration + 1
 
-        ndct['dp_c'][redo_nodes] = ndct['c'][redo_nodes] + c_en
+        # Initialize cost to -probability + end
+        # No parents
+        # Origin of each node is themselves
+
+        ndct['dp_c'][redo_nodes] = ndct['c'][redo_nodes] + c_enter
         ndct['dp_link'][redo_nodes] = -1
         ndct['orig'][redo_nodes] = redo_nodes
+
+        # Iterate starting from node 0 initially
+        # get all nodes from previous frame in the graph
 
         for ii in range(len(redo_nodes)):
             i = redo_nodes[ii]
             f2 = ndct['pr'][i]
             if len(f2) == 0:
                 continue
+
+            # update cost of ith node with all parents
+            # find min cost
+            # update dp_c using min_cost if dp_c < min_cost
 
             costs = c_ij + ndct['c'][i] + ndct['dp_c'][f2]
             min_cost, j = np.min(costs), np.argmin(costs)
@@ -61,15 +76,24 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
                 ndct['dp_link'][i] = min_link
                 ndct['orig'][i] = ndct['orig'][min_link]
 
-        min_c = np.min(ndct['dp_c'] + c_ex)
-        ind = np.argmin(ndct['dp_c'] + c_ex)
+        # find node with lowest exit cost and corresponding index
+
+        min_c = np.min(ndct['dp_c'] + c_exit)
+        ind = np.argmin(ndct['dp_c'] + c_exit)
         inds = np.zeros(ndum).astype('int32')
+
+        # find all the nodes in the path of the node with
+        # lowest exit cost and put them in inds
 
         k1 = -1
         while not ind == -1:
             k1 = k1 + 1
             inds[k1] = ind
             ind = ndct['dp_link'][int(ind)]
+
+        # inds only upto k1 has valid nodes
+        # update k
+        # id_s => current iteration no. also is the current path no.
 
         inds = inds[:k1 + 1]
         inds_all[k:k + len(inds)] = inds
@@ -82,13 +106,18 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
         #    origs = np.unique(dres['orig'][supp_inds])
         #    redo_nodes = np.where(dres['orig'] == origs)
         # else:
+
         supp_inds = inds
         try:
             origs = inds[-1]
         except:
             origs = 0
-        redo_nodes = np.where(ndct['orig'] == origs)
 
+        # redo_nodes is still the nodes with themselves as parents
+        # and not belonging to any path
+        # remove already added nodes by making their cost infinity
+
+        redo_nodes = np.where(ndct['orig'] == origs)
         redo_nodes = np.setdiff1d(redo_nodes, supp_inds)
         ndct['dp_c'][supp_inds] = np.inf
         ndct['c'][supp_inds] = np.inf
@@ -98,6 +127,9 @@ def tracking_dp(ndct, c_en, c_ex, c_ij, betta,
     inds_all = inds_all[:k]
     id_s = id_s[:k]
 
+    # subtract all bounding boxes from ndct
+    # which do not belong to any path
+    
     res = sub(ndct, inds_all.astype('int32'))
 
     return res, min_cs
@@ -108,7 +140,7 @@ if __name__ == "__main__":
     from importlib import reload
     import grapher
 
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='[ %(asctime)s ] %(message)s')
     logging.info("Loading pedestrian detections cache")
 
     with open('pedestrian_detections.pkl', 'rb') as f:
