@@ -129,16 +129,18 @@ def tracking_dp(ndct, c_enter, c_exit, c_ij, beta,
 
     # subtract all bounding boxes from ndct
     # which do not belong to any path
-    
+
     res = sub(ndct, inds_all.astype('int32'))
 
-    return res, min_cs
+    return res, min_cs, id_s
 
 if __name__ == "__main__":
     import cv2, numpy as np, pickle
     import os, shutil
     from importlib import reload
     import grapher
+
+    colors = True
 
     logging.basicConfig(level=logging.DEBUG, format='[ %(asctime)s ] %(message)s')
     logging.info("Loading pedestrian detections cache")
@@ -150,13 +152,16 @@ if __name__ == "__main__":
     ndct = grapher.graphMaker(dct);
 
     logging.info("Tracking objects in the video")
-    res, min_cs = tracking_dp(ndct, 10., 10., 0, 0.2, 18, np.inf, False)
+    res, min_cs, id_s = tracking_dp(ndct, 10., 10., 0, 0.2, 18, np.inf, False)
     logging.info("Tracking complete")
 
-    def drawRect(img, x, y, w, h):
+    def drawRect(img, x, y, w, h, id):
         x1, y1 = int(x), int(y)
         x2, y2 = int(x + w), int(y + h)
-        cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        if colors:
+            cv2.rectangle(img, (x1, y1), (x2, y2), (min(id * 3, 255), max(255 - id * 3, 0), id / 2 + 10), 2)
+        else:
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
         return img
 
 
@@ -169,7 +174,7 @@ if __name__ == "__main__":
 
     for i in range(len(res['x'])):
         frame = res['fr'][i] - 1
-        images[frame] = drawRect(images[frame], res['x'][i], res['y'][i], res['w'][i], res['h'][i])
+        images[frame] = drawRect(images[frame], res['x'][i], res['y'][i], res['w'][i], res['h'][i], id_s[i])
 
     height, width, channels = images[0].shape
 
