@@ -8,7 +8,7 @@
 ## Sample of tracking for single object
 
 <p align="center">
-  <img src="./bin/track1.gif">
+  <img src="./other/track1.gif">
 </p>
 
 ## Sample result for Tracking with DP without NMS
