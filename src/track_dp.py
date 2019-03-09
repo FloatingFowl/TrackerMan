@@ -174,7 +174,7 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
                 x1,y1=detections['x'][i],detections['y'][i]
                 x2,y2=x1+detections['w'][i],y1+detections['h'][i]
                 boxb=[x1,y1,x2,y2]
-                if bb_intersection_over_union(boxa,boxb)>0.2 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
+                if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
                     detections['free'][i]=1
                     #print('done')
 
@@ -185,7 +185,7 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
                 x1,y1=detections['x'][i],detections['y'][i]
                 x2,y2=x1+detections['w'][i],y1+detections['h'][i]
                 boxb=[x1,y1,x2,y2]
-                if bb_intersection_over_union(boxa,boxb)>0.2 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
+                if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
                     detections['free'][i]=1
                     #print('done')
             cur_ind=detections['dp_link'][cur_ind]
@@ -225,15 +225,17 @@ if __name__=="__main__":
     out=np.array(out)
     print('totals is',out.shape)
     fin_list=[]
-    for i in out:
-        for j in i:
-            fin_list.append(j)
+    for i in range(len(out)):
+        for j in out[i]:
+            fin_list.append([j,i])
+    no_colors=len(out)+1
+    colors = [[np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)] for _ in range(no_colors)]
     print("total is",len(fin_list))
-    fin_list=list(set(fin_list))
+    #fin_list=list(set(fin_list))
     fin_list.sort()
     print('finally it is',len(fin_list))
 
-    cur_fr=detections['fr'][fin_list[0]]
+    cur_fr=detections['fr'][fin_list[0][0]]
     fname=base+'img1/'+convert(cur_fr)+'.jpg'
     img=cv2.imread(fname)
     print("Writing frames")
@@ -241,9 +243,8 @@ if __name__=="__main__":
     print(cmd)
     os.system(cmd)
     for i in range(len(fin_list)):
-        if i%100==0:
-            pass
-        new_fr=detections['fr'][fin_list[i]]
+ 
+        new_fr=detections['fr'][fin_list[i][0]]
         if new_fr!=cur_fr:
         
             sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
@@ -253,8 +254,8 @@ if __name__=="__main__":
             print(fname)
             img=cv2.imread(fname)
 
-        x,y,w,h=detections['x'][fin_list[i]],detections['y'][fin_list[i]],detections['w'][fin_list[i]],detections['h'][fin_list[i]]
-        img=drawRect(img,x,y,w,h)
+        x,y,w,h=detections['x'][fin_list[i][0]],detections['y'][fin_list[i][0]],detections['w'][fin_list[i][0]],detections['h'][fin_list[i][0]]
+        img=drawRect(img,x,y,w,h,colors[fin_list[i][1]])
         sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
     cv2.imwrite(sname,img)
 	
