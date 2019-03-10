@@ -7,6 +7,9 @@ import random
 import functools
 import make_detections
 import os
+import compute_metrics
+import glob
+import motmetrics as mm
 
          
 def colors(n):
@@ -126,9 +129,9 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
         #print(detections['r'][i])
         detections['dp_link'].append(-1)
         detections['free'].append(-1)
-    print("base cases done")
+    #print("base cases done")
     while 1:
-        print("iteration",k)
+        #print("iteration",k)
         for i in range(len(redo_nodes)):
             detections['dp_c'][i]=detections['r'][i]+c_in
             detections['dp_link'][i]=-1
@@ -136,7 +139,7 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
         k+=1
         tot_min=10000000000000000
         tot_amin=-1
-        print("DP starting")
+       # print("DP starting")
         for i in range(len(redo_nodes)):
             
             mi,amin=c_in,-1
@@ -152,14 +155,14 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
             if mi < tot_min and detections['free'][i]<0:
                 tot_min=mi
                 tot_amin=i
-        print("cost is",tot_min)
+        #print("cost is",tot_min)
         if tot_min>thr_cost:
             break
         final=[]
         cur_ind=tot_amin
         if detections['free'][cur_ind]>0:
             break
-        print("Getting path")
+        #print("Getting path")
         while cur_ind!=-1:
             final.append(cur_ind)
             detections['free'][cur_ind]=1
@@ -210,56 +213,69 @@ def customsort(a,b):
 
 
 if __name__=="__main__":
-    
-
-    base='../2DMOT2015/train/PETS09-S2L1/'
-    seqname=base.split('/')[-2]
-    f=base+'det/det.txt'
-    dct = make_detections.make_detections(f)
-    ndct = grapher.graphMaker(dct)
-    
-    detections=ndct
-    print('length is',len(detections['x']))
-    
-    out=dp_many(ndct,10,10,0,0.2,0,10000000)
-    out=np.array(out)
-    print('totals is',out.shape)
-    fin_list=[]
-    for i in range(len(out)):
-        for j in out[i]:
-            fin_list.append([j,i])
-    no_colors=len(out)+1
-    colors = [[np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)] for _ in range(no_colors)]
-    print("total is",len(fin_list))
-    #fin_list=list(set(fin_list))
-    fin_list.sort()
-    print('finally it is',len(fin_list))
-
-    cur_fr=detections['fr'][fin_list[0][0]]
-    fname=base+'img1/'+convert(cur_fr)+'.jpg'
-    img=cv2.imread(fname)
-    print("Writing frames")
-    cmd='mkdir '+seqname
-    print(cmd)
-    os.system(cmd)
-    for i in range(len(fin_list)):
- 
-        new_fr=detections['fr'][fin_list[i][0]]
-        if new_fr!=cur_fr:
+    accs=[]
+    dnames=[]
+    files=glob.glob('../2DMOT2015/train/*')
+    for base in files:
+        base+='/'
+        print(base)
+        #base='../2DMOT2015/train/KITTI-13/'
+        gtfile=base+'gt/'+'gt.txt'
+        seqname=base.split('/')[-2]
+        dnames.append(seqname)
+        f=base+'det/det.txt'
+        dct = make_detections.make_detections(f)
+        ndct = grapher.graphMaker(dct)
         
+        detections=ndct
+        print('length is',len(detections['x']))
+        
+        out=dp_many(ndct,10,10,0,0.2,0,10000000)
+        out=np.array(out)
+        print('totals is',out.shape)
+        fin_list=[]
+        for i in range(len(out)):
+            for j in out[i]:
+                fin_list.append([j,i])
+        no_colors=len(out)+1
+        colors = [[np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)] for _ in range(no_colors)]
+        print("total is",len(fin_list))
+        #fin_list=list(set(fin_list))
+        fin_list.sort()
+        #print('finally it is',len(fin_list))
+        #print(gtfile)
+        a1=compute_metrics.match(gtfile,out,detections)
+        accs.append(a1)
+        
+        cur_fr=detections['fr'][fin_list[0][0]]
+        fname=base+'img1/'+convert(cur_fr)+'.jpg'
+        img=cv2.imread(fname)
+
+        #print("Writing frames")
+        cmd='mkdir '+seqname
+        #print(cmd)
+        os.system(cmd)
+        for i in range(len(fin_list)):
+     
+            new_fr=detections['fr'][fin_list[i][0]]
+            if new_fr!=cur_fr:
+            
+                sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
+                cv2.imwrite(sname,img)
+                cur_fr=new_fr
+                fname=base+'img1/'+convert(cur_fr)+'.jpg'
+                #print(fname)
+                img=cv2.imread(fname)
+
+            x,y,w,h=detections['x'][fin_list[i][0]],detections['y'][fin_list[i][0]],detections['w'][fin_list[i][0]],detections['h'][fin_list[i][0]]
+            img=drawRect(img,x,y,w,h,colors[fin_list[i][1]])
             sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
-            cv2.imwrite(sname,img)
-            cur_fr=new_fr
-            fname=base+'img1/'+convert(cur_fr)+'.jpg'
-            print(fname)
-            img=cv2.imread(fname)
+        cv2.imwrite(sname,img)
 
-        x,y,w,h=detections['x'][fin_list[i][0]],detections['y'][fin_list[i][0]],detections['w'][fin_list[i][0]],detections['h'][fin_list[i][0]]
-        img=drawRect(img,x,y,w,h,colors[fin_list[i][1]])
-        sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
-    cv2.imwrite(sname,img)
-	
-
+        
+    mh = mm.metrics.create()
+    summary =mh.compute_many(accs,metrics=[ 'mota', 'motp'], names=dnames, generate_overall=True)
+    print(summary)
 
 
     
