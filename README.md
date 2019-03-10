@@ -6,10 +6,16 @@
 
 
 ## Sample of tracking for single object
-![Alt Text](./bin/track1.gif)
+
+<p align="center">
+  <img src="./other/track1.gif">
+</p>
 
 ## Sample result for Tracking with DP without NMS
-![Alt Text](./other/tracking.gif)
+
+<p align="center">
+  <img src="./other/tracking.gif">
+</p>
 
 ## Sample Results for multiple objects
 https://youtu.be/K1Uouo-hXp0
