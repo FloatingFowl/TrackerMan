@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 seq*
 *.mp4
+*.weights
 
 # C extensions
 *.so

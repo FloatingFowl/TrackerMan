@@ -145,8 +145,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, format='[ %(asctime)s ] %(message)s')
     logging.info("Loading pedestrian detections cache")
 
-    with open('pedestrian_detections.pkl', 'rb') as f:
+    with open('yolo_detections.pkl', 'rb') as f:
         dct = pickle.load(f)
+        for i in dct:
+            dct[i] = np.array(dct[i])
 
     reload(grapher)
     ndct = grapher.graphMaker(dct);
