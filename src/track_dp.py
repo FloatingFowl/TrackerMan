@@ -10,6 +10,7 @@ import os
 import compute_metrics
 import glob
 import motmetrics as mm
+import sys
 
          
 def colors(n):
@@ -101,7 +102,7 @@ def bb_intersection_over_union(boxA, boxB):
     # return the intersection over union value
     return iou
 
-def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
+def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it,nms=True):
     c_arr=[]
     for i in range(len(detections['r'])):
         c_arr.append(beta-detections['r'][i])
@@ -171,25 +172,26 @@ def dp_many(detections,c_in,c_ex,c_ij,beta,thr_cost,max_it):
             x1,y1=detections['x'][cur_ind],detections['y'][cur_ind]
             x2,y2=x1+detections['w'][cur_ind],y1+detections['h'][cur_ind]
             boxa=[x1,y1,x2,y2]
-            for i in range(cur_ind+1,len(detections['x'])):
-                if detections['fr'][i]>detections['fr'][cur_ind]:
-                    break
-                x1,y1=detections['x'][i],detections['y'][i]
-                x2,y2=x1+detections['w'][i],y1+detections['h'][i]
-                boxb=[x1,y1,x2,y2]
-                if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
-                    detections['free'][i]=1
-                    #print('done')
+            if nms:
+                for i in range(cur_ind+1,len(detections['x'])):
+                    if detections['fr'][i]>detections['fr'][cur_ind]:
+                        break
+                    x1,y1=detections['x'][i],detections['y'][i]
+                    x2,y2=x1+detections['w'][i],y1+detections['h'][i]
+                    boxb=[x1,y1,x2,y2]
+                    if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
+                        detections['free'][i]=1
+                        #print('done')
 
-            for i in range(cur_ind-1,-1,-1):
-                if detections['fr'][i]<detections['fr'][cur_ind]:
-                    break
+                for i in range(cur_ind-1,-1,-1):
+                    if detections['fr'][i]<detections['fr'][cur_ind]:
+                        break
 
-                x1,y1=detections['x'][i],detections['y'][i]
-                x2,y2=x1+detections['w'][i],y1+detections['h'][i]
-                boxb=[x1,y1,x2,y2]
-                if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
-                    detections['free'][i]=1
+                    x1,y1=detections['x'][i],detections['y'][i]
+                    x2,y2=x1+detections['w'][i],y1+detections['h'][i]
+                    boxb=[x1,y1,x2,y2]
+                    if bb_intersection_over_union(boxa,boxb)>0 and abs(detections['r'][i])<abs(detections['r'][cur_ind]):
+                        detections['free'][i]=1
                     #print('done')
             cur_ind=detections['dp_link'][cur_ind]
         paths.append(final)
@@ -213,6 +215,16 @@ def customsort(a,b):
 
 
 if __name__=="__main__":
+    isyolo=sys.argv[1]
+    if isyolo=='yolo':
+        isyolo=True
+    else:
+        isyolo=False
+    isnms=sys.argv[2]
+    if isnms=='nms':
+        isnms=True
+    else:
+        isnms=False
     accs=[]
     dnames=[]
     files=glob.glob('../2DMOT2015/train/*')
@@ -223,20 +235,33 @@ if __name__=="__main__":
         gtfile=base+'gt/'+'gt.txt'
         seqname=base.split('/')[-2]
         dnames.append(seqname)
-        f=base+'det/det.txt'
-        dct = make_detections.make_detections(f)
-        ndct = grapher.graphMaker(dct)
+        if isyolo:
+            f=base+'det/det.pkl'
+            f=open(f,'rb')
+            dct=pickle.load(f)
+            for i in dct:
+                dct[i] = np.array(dct[i])
+            #dct = make_detections.make_detections(bin_graph)
+            #bin_graph['fr']=np.array(bin_graph['fr'],dtype='uint32')
+            ndct = grapher.graphMaker(dct)
+        else:
+            f=base+'det/det.txt'
+            dct = make_detections.make_detections(f)
+            ndct = grapher.graphMaker(dct)
+        
+            
         
         detections=ndct
-        print('length is',len(detections['x']))
+        #print('length is',len(detections['x']))
         
-        out=dp_many(ndct,10,10,0,0.2,0,10000000)
+        out=dp_many(ndct,10,10,0,0.2,0,10000000,isnms)
         out=np.array(out)
-        print('totals is',out.shape)
+        #print('totals is',out.shape)
         fin_list=[]
         for i in range(len(out)):
             for j in out[i]:
                 fin_list.append([j,i])
+        
         no_colors=len(out)+1
         colors = [[np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)] for _ in range(no_colors)]
         print("total is",len(fin_list))
@@ -244,35 +269,37 @@ if __name__=="__main__":
         fin_list.sort()
         #print('finally it is',len(fin_list))
         #print(gtfile)
-        a1=compute_metrics.match(gtfile,out,detections)
-        accs.append(a1)
-        
-        cur_fr=detections['fr'][fin_list[0][0]]
-        fname=base+'img1/'+convert(cur_fr)+'.jpg'
-        img=cv2.imread(fname)
+        #a1=compute_metrics.match(gtfile,out,detections)
+        #accs.append(a1)
+        if fin_list!=[]:
+            cur_fr=detections['fr'][fin_list[0][0]]
+            fname=base+'img1/'+convert(cur_fr)+'.jpg'
+            img=cv2.imread(fname)
 
-        #print("Writing frames")
-        cmd='mkdir '+seqname
-        #print(cmd)
-        os.system(cmd)
-        for i in range(len(fin_list)):
-     
-            new_fr=detections['fr'][fin_list[i][0]]
-            if new_fr!=cur_fr:
-            
+            #print("Writing frames")
+
+            cmd='mkdir '+seqname
+            #print(cmd)
+            os.system(cmd)
+            for i in range(len(fin_list)):
+         
+                new_fr=detections['fr'][fin_list[i][0]]
+                if new_fr!=cur_fr:
+                
+                    sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
+                    cv2.imwrite(sname,img)
+                    cur_fr=new_fr
+                    fname=base+'img1/'+convert(cur_fr)+'.jpg'
+                    #print(fname)
+                    img=cv2.imread(fname)
+
+                x,y,w,h=detections['x'][fin_list[i][0]],detections['y'][fin_list[i][0]],detections['w'][fin_list[i][0]],detections['h'][fin_list[i][0]]
+                img=drawRect(img,x,y,w,h,colors[fin_list[i][1]])
                 sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
-                cv2.imwrite(sname,img)
-                cur_fr=new_fr
-                fname=base+'img1/'+convert(cur_fr)+'.jpg'
-                #print(fname)
-                img=cv2.imread(fname)
-
-            x,y,w,h=detections['x'][fin_list[i][0]],detections['y'][fin_list[i][0]],detections['w'][fin_list[i][0]],detections['h'][fin_list[i][0]]
-            img=drawRect(img,x,y,w,h,colors[fin_list[i][1]])
-            sname='./'+seqname+'/'+convert(cur_fr)+'.jpg'
-        cv2.imwrite(sname,img)
-
+            cv2.imwrite(sname,img)
         
+        a1=compute_metrics.match(gtfile,out,detections)
+        accs.append(a1)        
     mh = mm.metrics.create()
     summary =mh.compute_many(accs,metrics=[ 'mota', 'motp'], names=dnames, generate_overall=True)
     print(summary)
