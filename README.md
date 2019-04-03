@@ -4,6 +4,7 @@
 
 # Implementation of "Globally-optimal greedy algorithms for tracking a variable number of objects"
 
+[Google Docs presentation here](https://docs.google.com/presentation/d/1hfFy2mtVQT85IyWbXXIuzW9xEwwLg0rytxoY6Tm--18/edit?usp=sharing)
 
 ## Sample of tracking for single object
 
